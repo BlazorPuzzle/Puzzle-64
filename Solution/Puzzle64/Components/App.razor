@@ -1,0 +1,46 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["Puzzle64.styles.css"]" />
+    <ImportMap />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <script src="_framework/blazor.web.js"></script>
+
+    <script>
+
+        var dotNetReference;
+        var keyDownHandler;
+
+        window.InitializeKeyboardHandler = (dotNetRef) => {
+            dotNetReference = dotNetRef;
+
+            // Define the handler separately so we can remove it later
+            keyDownHandler = (event) => {
+                console.log(event.key);
+                dotNetReference.invokeMethodAsync('OnKeyDown', event.key);
+            };
+
+            document.addEventListener('keydown', keyDownHandler);
+        };
+
+        window.RemoveKeyboardHandler = () => {
+            if (keyDownHandler) {
+                document.removeEventListener('keydown', keyDownHandler);
+                keyDownHandler = null; // Clear reference to prevent memory leaks
+            }
+        };
+    </script>
+</body>
+
+</html>

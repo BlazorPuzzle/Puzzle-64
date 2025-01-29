@@ -1,0 +1,160 @@
+# Blazor Puzzle #64
+
+## A Phantom Menace?
+
+YouTube Video: https://youtu.be/
+
+Blazor Puzzle Home Page: https://blazorpuzzle.com
+
+### The Challenge:
+
+This is a .NET 9 Blazor Web App with Global Server Interactivity
+
+We are initializing a global keypress handler in JavaScript, which calls our code whenever a key is pressed.
+
+You can see the JavaScript code in *App.razor*:
+
+```html
+<script>
+    window.InitializeKeyboardHandler = (dotNetRef) =>
+    {
+        document.addEventListener('keydown', (event) =>
+        {
+            dotNetRef.invokeMethodAsync('OnKeyDown', event.key);
+        });
+    }
+</script>
+```
+
+*Home.razor*:
+
+```c#
+@page "/"
+@inject IJSRuntime jsRuntime
+
+<PageTitle>Home</PageTitle>
+
+<p>This is a .NET 9 Blazor Web App with Global Server Interactivity</p>
+
+<p>We are initializing a global keypress handler in JavaScript, which calls our code whenever a key is pressed.</p>
+
+<p>You can see the JavaScript code in App.razor</p>
+
+<p>It works, but there is a problem here.</p>
+
+<p>What is it?</p>
+
+<p>Test it by pressing keys.</p>
+
+<h3>@Message</h3>
+
+@code 
+{
+    string Message { get; set; } = "";
+
+    protected override async Task OnAfterRenderAsync (bool firstRender)
+    {
+        if (firstRender)
+        {
+            await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", DotNetObjectReference.Create(this));
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnKeyDown(string key)
+    {
+        Message += key;
+        await InvokeAsync(StateHasChanged);
+    }
+}
+```
+
+It works, but there is a problem here.
+
+What is it?
+
+### The Solution:
+
+The real problem is that every time you navigate to the home page, there's another JavaScript call to initialize the keyboard handler. The new `dotNetRef` takes over, and the old handler is still in memory.
+
+You can witness the problem by changing the script like so:
+
+```html
+<script>
+
+    window.InitializeKeyboardHandler = (dotNetRef) =>
+    {
+        document.addEventListener('keydown', (event) =>
+        {
+            console.log(event.key);
+            dotNetRef.invokeMethodAsync('OnKeyDown', event.key);
+        });
+    }
+</script>
+```
+
+Run the app, open the console dev tool pane, and press a key. Notice the `console.log` output:
+
+![image-20250129144915756](images/image-20250129144915756.png)
+
+First I pressed "a", then Alt-PrtScn to take a screen capture.
+
+Now navigate to another page and back and press keys
+
+![image-20250129145020026](images/image-20250129145020026.png)
+
+Notice there are 2 calls to console.log for every key. That means the handler is firing twice. That means the first handler has been stranded, causing a memory leak.
+
+The solution is to create an `RemoveKeyboardHandler` JavaScript method, implement `IDisposable` in *Home.razor*, and unhook the handler in the `Dispose()` method. 
+
+Let's start by changing the script a little in *App.razor*:
+
+```html
+<script>
+
+    var dotNetReference;
+    var keyDownHandler;
+
+    window.InitializeKeyboardHandler = (dotNetRef) => {
+        dotNetReference = dotNetRef;
+
+        // Define the handler separately so we can remove it later
+        keyDownHandler = (event) => {
+            console.log(event.key);
+            dotNetReference.invokeMethodAsync('OnKeyDown', event.key);
+        };
+
+        document.addEventListener('keydown', keyDownHandler);
+    };
+
+    window.RemoveKeyboardHandler = () => {
+        if (keyDownHandler) {
+            document.removeEventListener('keydown', keyDownHandler);
+            keyDownHandler = null; // Clear reference to prevent memory leaks
+        }
+    };
+</script>
+```
+
+Now, add this to the top of *Home.razor*:
+
+```
+@implements IAsyncDisposable
+```
+
+And add this to the bottom:
+
+```c#
+public async ValueTask DisposeAsync()
+{
+    await jsRuntime.InvokeVoidAsync("RemoveKeyboardHandler");
+}
+```
+
+Do the same test again. This time, you don't get more than one event, because we have removed the keyboard handler when we navigated away from the Home page.
+
+
+
+![image-20250129150325520](images/image-20250129150325520.png)
+
+Boom!
