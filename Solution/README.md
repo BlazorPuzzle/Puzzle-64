@@ -112,16 +112,14 @@ Let's start by changing the script a little in *App.razor*:
 ```html
 <script>
 
-    var dotNetReference;
     var keyDownHandler;
 
     window.InitializeKeyboardHandler = (dotNetRef) => {
-        dotNetReference = dotNetRef;
 
         // Define the handler separately so we can remove it later
         keyDownHandler = (event) => {
             console.log(event.key);
-            dotNetReference.invokeMethodAsync('OnKeyDown', event.key);
+            dotNetRef.invokeMethodAsync('OnKeyDown', event.key);
         };
 
         document.addEventListener('keydown', keyDownHandler);
@@ -136,24 +134,84 @@ Let's start by changing the script a little in *App.razor*:
 </script>
 ```
 
-Now, add this to the top of *Home.razor*:
+Now, replace *Home.razor* with this:
+
+```c#
+@page "/"
+@implements IAsyncDisposable
+@inject IJSRuntime jsRuntime
+
+<PageTitle>Home</PageTitle>
+
+<p>Test it by pressing keys.</p>
+
+<h3>@Message</h3>
+
+@code 
+{
+    string Message { get; set; } = "";
+    bool Loaded = false;
+
+    protected override async Task OnAfterRenderAsync (bool firstRender)
+    {
+        if (firstRender)
+        {
+            await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", DotNetObjectReference.Create(this));
+            Loaded = true;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnKeyDown(string key)
+    {
+        Message += key;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (Loaded) 
+            await jsRuntime.InvokeVoidAsync("RemoveKeyboardHandler");
+    }
+}
+```
+
+We are implementing `IAsyncDisposable`:
 
 ```
 @implements IAsyncDisposable
 ```
 
-And add this to the bottom:
+We've also introduced this boolean:
+
+```c#
+bool Loaded = false;
+```
+
+We set Loaded to true after initializing the handler:
+
+```c#
+protected override async Task OnAfterRenderAsync (bool firstRender)
+{
+    if (firstRender)
+    {
+        await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", DotNetObjectReference.Create(this));
+        Loaded = true;
+    }
+}
+```
+
+Now in `DisposeAsync()` we are calling `RemoveKeyboardHandler` only if we are loaded. This prevents a runtime error that happens when called during pre-rendering.
 
 ```c#
 public async ValueTask DisposeAsync()
 {
-    await jsRuntime.InvokeVoidAsync("RemoveKeyboardHandler");
+    if (Loaded) 
+        await jsRuntime.InvokeVoidAsync("RemoveKeyboardHandler");
 }
 ```
 
 Do the same test again. This time, you don't get more than one event, because we have removed the keyboard handler when we navigated away from the Home page.
-
-
 
 ![image-20250129150325520](images/image-20250129150325520.png)
 
