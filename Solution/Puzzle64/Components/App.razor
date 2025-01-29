@@ -19,16 +19,14 @@
 
     <script>
 
-        var dotNetReference;
         var keyDownHandler;
 
         window.InitializeKeyboardHandler = (dotNetRef) => {
-            dotNetReference = dotNetRef;
 
             // Define the handler separately so we can remove it later
             keyDownHandler = (event) => {
                 console.log(event.key);
-                dotNetReference.invokeMethodAsync('OnKeyDown', event.key);
+                dotNetRef.invokeMethodAsync('OnKeyDown', event.key);
             };
 
             document.addEventListener('keydown', keyDownHandler);

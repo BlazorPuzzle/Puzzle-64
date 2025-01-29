@@ -21,12 +21,14 @@
 @code 
 {
     string Message { get; set; } = "";
+    bool Loaded = false;
 
     protected override async Task OnAfterRenderAsync (bool firstRender)
     {
         if (firstRender)
         {
             await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", DotNetObjectReference.Create(this));
+            Loaded = true;
         }
     }
 
@@ -39,6 +41,7 @@
 
     public async ValueTask DisposeAsync()
     {
-        await jsRuntime.InvokeVoidAsync("RemoveKeyboardHandler");
+        if (Loaded) 
+            await jsRuntime.InvokeVoidAsync("RemoveKeyboardHandler");
     }
 }

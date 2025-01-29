@@ -23,6 +23,7 @@
         {
             document.addEventListener('keydown', (event) =>
             {
+                console.log(event.key);
                 dotNetRef.invokeMethodAsync('OnKeyDown', event.key);
             });
         }
