@@ -143,6 +143,16 @@ Now, replace *Home.razor* with this:
 
 <PageTitle>Home</PageTitle>
 
+<p>This is a .NET 9 Blazor Web App with Global Server Interactivity</p>
+
+<p>We are initializing a global keypress handler in JavaScript, which calls our code whenever a key is pressed.</p>
+
+<p>You can see the JavaScript code in App.razor</p>
+
+<p>It works, but there is a problem here.</p>
+
+<p>What is it?</p>
+
 <p>Test it by pressing keys.</p>
 
 <h3>@Message</h3>
@@ -151,12 +161,14 @@ Now, replace *Home.razor* with this:
 {
     string Message { get; set; } = "";
     bool Loaded = false;
+    DotNetObjectReference<Home> dotNetObjectReference;
 
     protected override async Task OnAfterRenderAsync (bool firstRender)
     {
         if (firstRender)
         {
-            await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", DotNetObjectReference.Create(this));
+            dotNetObjectReference = DotNetObjectReference.Create(this);
+            await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", dotNetObjectReference);
             Loaded = true;
         }
     }
@@ -171,7 +183,10 @@ Now, replace *Home.razor* with this:
     public async ValueTask DisposeAsync()
     {
         if (Loaded) 
+        {
             await jsRuntime.InvokeVoidAsync("RemoveKeyboardHandler");
+            dotNetObjectReference.Dispose();
+        }
     }
 }
 ```
@@ -188,28 +203,40 @@ We've also introduced this boolean:
 bool Loaded = false;
 ```
 
-We set Loaded to true after initializing the handler:
+... and this reference variable:
+
+```c#
+DotNetObjectReference<Home> dotNetObjectReference;
+```
+
+We create the .NET Object Reference, and then set Loaded to true after initializing the handler:
 
 ```c#
 protected override async Task OnAfterRenderAsync (bool firstRender)
 {
     if (firstRender)
     {
-        await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", DotNetObjectReference.Create(this));
+        dotNetObjectReference = DotNetObjectReference.Create(this);
+        await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", dotNetObjectReference);
         Loaded = true;
     }
 }
 ```
 
-Now in `DisposeAsync()` we are calling `RemoveKeyboardHandler` only if we are loaded. This prevents a runtime error that happens when called during pre-rendering.
+Now in `DisposeAsync()` we are calling `RemoveKeyboardHandler` only if we are loaded. This prevents a runtime error that happens when called during pre-rendering. We also dispose the .NET Object reference.
 
 ```c#
 public async ValueTask DisposeAsync()
 {
     if (Loaded) 
+    {
         await jsRuntime.InvokeVoidAsync("RemoveKeyboardHandler");
+        dotNetObjectReference.Dispose();
+    }
 }
 ```
+
+> :point_up: NOTE: We didn't dispose the `DotNetObjectReference` in the video. This occurred to us after we recorded it.
 
 Do the same test again. This time, you don't get more than one event, because we have removed the keyboard handler when we navigated away from the Home page.
 

@@ -22,12 +22,14 @@
 {
     string Message { get; set; } = "";
     bool Loaded = false;
+    DotNetObjectReference<Home> dotNetObjectReference;
 
     protected override async Task OnAfterRenderAsync (bool firstRender)
     {
         if (firstRender)
         {
-            await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", DotNetObjectReference.Create(this));
+            dotNetObjectReference = DotNetObjectReference.Create(this);
+            await jsRuntime.InvokeVoidAsync("InitializeKeyboardHandler", dotNetObjectReference);
             Loaded = true;
         }
     }
@@ -42,6 +44,9 @@
     public async ValueTask DisposeAsync()
     {
         if (Loaded) 
+        {
             await jsRuntime.InvokeVoidAsync("RemoveKeyboardHandler");
+            dotNetObjectReference.Dispose();
+        }
     }
 }
