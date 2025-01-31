@@ -2,7 +2,7 @@
 
 ## A Phantom Menace?
 
-YouTube Video: https://youtu.be/
+YouTube Video: https://youtu.be/xVO-fbI0MKE
 
 Blazor Puzzle Home Page: https://blazorpuzzle.com
 
